@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>¿Qué ruta conviene? Vendedor en México</title>
+<style>
+:root{--bg:#f3f1ea;--card:#fff;--ink:#1d2a2f;--mut:#5d6b70;--line:#d6d2c4;--acc:#0b6e69;--acc2:#c2410c;--map:#e6ece8;--ok:#a16207;--bad:#b91c1c;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121a1c;--card:#1a2427;--ink:#e8eeee;--mut:#9fb0b3;--line:#2f3f43;--acc:#4fd1c5;--acc2:#fb923c;--map:#182226;--ok:#fbbf24;--bad:#f87171}}
+:root[data-theme="dark"]{--bg:#121a1c;--card:#1a2427;--ink:#e8eeee;--mut:#9fb0b3;--line:#2f3f43;--acc:#4fd1c5;--acc2:#fb923c;--map:#182226;--ok:#fbbf24;--bad:#f87171}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Georgia,"Times New Roman",serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.7rem;line-height:1.2;margin:0 0 6px}
+h2{font-size:1.05rem;margin:0 0 8px}
+p.sub{color:var(--mut);margin:0 0 16px;max-width:64ch}
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px}
+canvas{width:100%;display:block;background:var(--map);border-radius:6px;cursor:pointer}
+button{font:600 .9rem system-ui,sans-serif;background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,.it:focus-visible,canvas:focus-visible{outline:3px solid var(--acc2);outline-offset:2px}
+.it{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;cursor:pointer;font-family:system-ui,sans-serif;font-size:.9rem}
+.it.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+.it b{font-size:.95rem}
+.it .km{text-align:right;font-weight:600}
+.it .sm{color:var(--mut);font-size:.82rem}
+.tag{font-weight:700}
+.best{color:var(--acc)}.okc{color:var(--ok)}.bad{color:var(--bad)}
+#ruta,#mine{font:.9rem/1.5 system-ui,sans-serif;margin:10px 0 0}
+.help{font:.82rem system-ui,sans-serif;color:var(--mut);margin:0 0 8px}
+.sim{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.sim select{width:auto;padding:7px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font:inherit}
+.sim .km{margin-left:auto;font:700 .95rem system-ui,sans-serif}
+button:disabled{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+<main>
+<h1>Un vendedor sale de Puebla y debe visitar 9 ciudades</h1>
+<p class="sub">Tiene que pasar por cada ciudad una sola vez y regresar a Puebla. Hay 362,880 órdenes posibles. El programa revisa varias rutas, te dice cuál es la más corta y cuáles conviene o no conviene tomar.</p>
+<div class="grid">
+<div>
+<div class="box"><canvas id="cv" tabindex="0" aria-label="Mapa de ciudades"></canvas><div class="sim"><button id="simBtn" type="button">▶ Simular recorrido</button><button id="simRst" type="button" class="alt">Reiniciar</button><label>Velocidad <select id="simVel"><option value="1">Normal</option><option value="2">Rápida</option><option value="4">Muy rápida</option></select></label><span id="simKm" class="km"></span></div><p id="simEst" class="help" role="status" style="margin:8px 0 0"></p><p id="ruta"></p></div>
+<div class="box">
+<h2>Arma tu propia ruta</h2>
+<p class="help">Toca las ciudades en el orden en que las visitarías. Sales de Puebla y el programa regresa solo al final.</p>
+<button class="alt" id="clr">Borrar mi ruta</button>
+<p id="mine"></p>
+</div>
+</div>
+<div class="box">
+<h2>Rutas revisadas, de la más corta a la más larga</h2>
+<p class="help">Conviene si es hasta 5% más larga que la mejor. Si pasa de eso, no conviene.</p>
+<div id="list"></div>
+<button id="more">Revisar otras rutas</button>
+</div>
+</div>
+</main>
+<script>
+const C=[["Puebla",19.0414,-98.2063],["CDMX",19.4326,-99.1332],["Cuernavaca",18.9186,-99.2342],["Toluca",19.2826,-99.6557],["Querétaro",20.5888,-100.3899],["Pachuca",20.1011,-98.7591],["Tlaxcala",19.3139,-98.2404],["Veracruz",19.1738,-96.1342],["Oaxaca",17.0732,-96.7266],["Acapulco",16.8531,-99.8237]];
+const N=C.length,rad=x=>x*Math.PI/180;
+function hav(a,b){const d=Math.sin(rad(b[1]-a[1])/2)**2+Math.cos(rad(a[1]))*Math.cos(rad(b[1]))*Math.sin(rad(b[2]-a[2])/2)**2;return 12742*Math.asin(Math.sqrt(d))}
+const D=C.map(a=>C.map(b=>hav(a,b)));
+const cost=r=>{let s=0;for(let i=0;i<r.length;i++)s+=D[r[i]][r[(i+1)%r.length]];return s};
+function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const shuffle=R=>{const a=[...Array(N).keys()];for(let i=N-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const two=(r,i,j)=>r.slice(0,i).concat(r.slice(i,j+1).reverse(),r.slice(j+1));
+const norm=r=>{const k=r.indexOf(0);r=r.slice(k).concat(r.slice(0,k));return r[1]>r[N-1]?[0,...r.slice(1).reverse()]:r};
+
+function bruta(){let best=null,bc=Infinity;const path=[0],used=Array(N).fill(false);used[0]=true;
+(function dfs(c){if(path.length===N){const t=c+D[path[N-1]][0];if(t<bc){bc=t;best=path.slice()}return}
+for(let j=1;j<N;j++)if(!used[j]){used[j]=true;path.push(j);dfs(c+D[path[path.length-2]][j]);path.pop();used[j]=false}})(0);return best}
+function vecino(){const r=[0],p=new Set([...Array(N).keys()].slice(1));while(p.size){let b=-1,bd=Infinity;for(const j of p)if(D[r.at(-1)][j]<bd){bd=D[r.at(-1)][j];b=j}r.push(b);p.delete(b)}return r}
+function hill(R){let r=shuffle(R),c=cost(r),m=true;while(m){m=false;for(let i=1;i<N-1;i++)for(let j=i+1;j<N;j++){const q=two(r,i,j),qc=cost(q);if(qc<c-1e-9){r=q;c=qc;m=true}}}return r}
+function recocido(R){let r=shuffle(R),c=cost(r),b=r,bc=c,t=500;while(t>0.01){let i=1+Math.floor(R()*(N-1)),j=1+Math.floor(R()*(N-1));if(i===j)continue;if(i>j)[i,j]=[j,i];const q=two(r,i,j),qc=cost(q),d=qc-c;if(d<0||R()<Math.exp(-d/t)){r=q;c=qc;if(c<bc){b=r;bc=c}}t*=0.995}return b}
+function genetico(R){const P=100,G=300;let pop=Array.from({length:P},()=>shuffle(R));
+const tor=()=>{let b=null;for(let k=0;k<5;k++){const x=pop[Math.floor(R()*P)];if(!b||cost(x)<cost(b))b=x}return b};
+const ox=(p1,p2)=>{let a=Math.floor(R()*N),b=Math.floor(R()*N);if(a>b)[a,b]=[b,a];const h=Array(N).fill(null);for(let i=a;i<=b;i++)h[i]=p1[i];const rest=p2.filter(g=>!h.includes(g));let k=0;for(let i=0;i<N;i++)if(h[i]===null)h[i]=rest[k++];return h};
+for(let g=0;g<G;g++){pop.sort((x,y)=>cost(x)-cost(y));const nw=[pop[0].slice(),pop[1].slice()];while(nw.length<P){const h=ox(tor(),tor());if(R()<0.2){const i=Math.floor(R()*N),j=Math.floor(R()*N);[h[i],h[j]]=[h[j],h[i]]}nw.push(h)}pop=nw}
+pop.sort((x,y)=>cost(x)-cost(y));return pop[0]}
+
+let routes=[],sel=0,mine=[0],opt=0,pos=[],seed=1;
+const OPT=norm(bruta()),OPTC=cost(OPT);
+function build(){const R=rng(seed++*97);const cand=[OPT,vecino(),hill(R),recocido(R),genetico(R),shuffle(R),shuffle(R),shuffle(R)];
+const seen=new Set();routes=[];for(const r of cand){const n=norm(r),k=n.join();if(!seen.has(k)){seen.add(k);routes.push({route:n,cost:cost(n)})}}
+routes.sort((a,b)=>a.cost-b.cost);opt=OPTC;routes.forEach((r,i)=>r.name="Ruta "+(i+1));sel=0}
+function verdict(c){const d=c-opt,p=d/opt*100;return d<0.01?["La más corta","best"]:p<=5?["Conviene","okc"]:["No conviene","bad"]}
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d");
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function show(){document.getElementById("list").innerHTML=routes.map((r,i)=>{const[t,c]=verdict(r.cost),d=r.cost-opt;return`<div class="it ${i===sel?"sel":""}" tabindex="0" role="button" data-i="${i}"><b>${r.name}</b><span class="km">${r.cost.toFixed(0)} km</span><span class="tag ${c}">${t}</span><span class="sm" style="text-align:right">${d<0.01?"mejor opción":"+"+d.toFixed(0)+" km ("+(d/opt*100).toFixed(1)+"%)"}</span></div>`}).join("")}
+function draw(){const w=cv.clientWidth,h=Math.round(w*0.78),dpr=window.devicePixelRatio||1;cv.width=w*dpr;cv.height=h*dpr;cv.style.height=h+"px";ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+const la=C.map(c=>c[1]),lo=C.map(c=>c[2]),k=Math.cos(rad(19)),x0=Math.min(...lo),x1=Math.max(...lo),y0=Math.min(...la),y1=Math.max(...la),pad=36;
+const s=Math.min((w-2*pad)/((x1-x0)*k),(h-2*pad)/(y1-y0)),ox=(w-(x1-x0)*k*s)/2,oy=(h-(y1-y0)*s)/2;
+pos=C.map(c=>[ox+(c[2]-x0)*k*s,oy+(y1-c[1])*s]);
+const r=sel>=0?routes[sel].route:mine,closed=sel>=0||mine.length===N;
+if(r.length>1){const v=sel>=0?verdict(routes[sel].cost)[1]:(mine.length===N?verdict(cost(mine))[1]:"best");ctx.strokeStyle=css(v==="bad"?"--bad":v==="okc"?"--ok":"--acc");ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.beginPath();(closed?r.concat(r[0]):r).forEach((i,n)=>{const[p,q]=pos[i];n?ctx.lineTo(p,q):ctx.moveTo(p,q)});ctx.globalAlpha=(closed&&r.length===N)?0.28:1;ctx.stroke();ctx.globalAlpha=1}
+ctx.font="12px system-ui,sans-serif";C.forEach((c,i)=>{const[p,q]=pos[i],o=r.indexOf(i);ctx.fillStyle=i===0?css("--acc2"):css("--ink");ctx.beginPath();ctx.arc(p,q,i===0?6:4.5,0,7);ctx.fill();ctx.fillText((o>0?o+" ":"")+c[0],p+8,q-6)});
+simDraw(r,closed&&r.length===N);const rt=document.getElementById("ruta");
+if(sel>=0){const x=routes[sel],[t]=verdict(x.cost);rt.textContent=x.name+" ("+t+", "+x.cost.toFixed(0)+" km): "+x.route.concat(0).map(i=>C[i][0]).join(" → ")}else rt.textContent="Tu ruta: "+mine.map(i=>C[i][0]).join(" → ")+(mine.length===N?" → Puebla":"");
+const m=document.getElementById("mine");
+if(mine.length===1)m.textContent="Aún no eliges ciudades.";else if(mine.length<N)m.textContent="Llevas "+(mine.length-1)+" de 9 ciudades. Recorrido hasta ahora: "+mine.slice(1).reduce((a,b,i)=>a+D[mine[i]][b],0).toFixed(0)+" km.";
+else{const c=cost(mine),[t,cl]=verdict(c),d=c-opt;m.innerHTML=`Tu ruta mide <b>${c.toFixed(0)} km</b>. <span class="tag ${cl}">${t}</span>. ${d<0.01?"Encontraste la ruta más corta.":"Es "+d.toFixed(0)+" km más larga que la mejor ("+opt.toFixed(0)+" km)."}`}}
+function pick(i){sel=-1;if(i===0||mine.includes(i)||mine.length>=N){draw();show();return}mine.push(i);show();draw()}
+cv.addEventListener("click",e=>{const b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;let best=-1,bd=24;pos.forEach((p,i)=>{const d=Math.hypot(p[0]-x,p[1]-y);if(d<bd){bd=d;best=i}});if(best>=0)pick(best)});
+document.getElementById("list").addEventListener("click",e=>{const t=e.target.closest(".it");if(t){sel=+t.dataset.i;show();draw()}});
+document.getElementById("list").addEventListener("keydown",e=>{if(e.key==="Enter"){const t=e.target.closest(".it");if(t){sel=+t.dataset.i;show();draw()}}});
+document.getElementById("clr").addEventListener("click",()=>{mine=[0];sel=-1;show();draw()});
+document.getElementById("more").addEventListener("click",()=>{build();show();draw()});
+const A={key:"",leg:0,f:0,kmDone:0,play:false,pausa:0,fin:false,last:0,L:[],K:[]};
+const $=id=>document.getElementById(id);
+const cur=()=>sel>=0?routes[sel].route:mine;
+function simReset(){A.leg=0;A.f=0;A.kmDone=0;A.pausa=0;A.fin=false;A.play=false;$("simBtn").textContent="▶ Simular recorrido";$("simEst").textContent="Listo para salir de Puebla."}
+function simDraw(r,ok){
+const b=$("simBtn"),est=$("simEst"),odo=$("simKm");b.disabled=!ok;
+if(!ok){A.key="";A.play=false;b.textContent="▶ Simular recorrido";est.textContent="Completa una ruta para ver el recorrido.";odo.textContent="";return}
+const key=r.join();if(key!==A.key){A.key=key;simReset()}
+const P=r.concat(r[0]).map(i=>pos[i]);A.L=[];A.K=[];
+for(let i=0;i<r.length;i++){A.L.push(Math.hypot(P[i+1][0]-P[i][0],P[i+1][1]-P[i][1]));A.K.push(D[r[i]][r[(i+1)%r.length]])}
+const a=P[A.leg],c=P[A.leg+1],x=a[0]+(c[0]-a[0])*A.f,y=a[1]+(c[1]-a[1])*A.f;
+const vc=verdict(cost(r))[1];ctx.strokeStyle=css(vc==="bad"?"--bad":vc==="okc"?"--ok":"--acc");ctx.lineWidth=4;ctx.lineCap="round";ctx.lineJoin="round";
+ctx.beginPath();ctx.moveTo(P[0][0],P[0][1]);for(let i=1;i<=A.leg;i++)ctx.lineTo(P[i][0],P[i][1]);ctx.lineTo(x,y);ctx.stroke();ctx.lineCap="butt";
+ctx.save();ctx.translate(x,y);ctx.scale(c[0]>a[0]?-1:1,1);ctx.font="24px system-ui,sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("🚗",0,0);ctx.restore();
+odo.textContent=(A.kmDone+A.K[A.leg]*A.f).toFixed(0)+" km de "+cost(r).toFixed(0)+" km"}
+function simStep(t){
+if(!A.play)return;const dt=Math.min(50,t-A.last);A.last=t;const r=cur();
+if(A.pausa>0)A.pausa-=dt;
+else{A.f+=0.1*parseFloat($("simVel").value)*dt/A.L[A.leg];
+if(A.f>=1){
+if(A.leg===r.length-1){A.f=1;A.fin=true;A.play=false;$("simEst").textContent="¡Llegó a Puebla! Recorrió "+cost(r).toFixed(0)+" km";$("simBtn").textContent="↻ Repetir";draw();return}
+A.kmDone+=A.K[A.leg];A.leg++;A.f=0;A.pausa=500;$("simEst").textContent="En "+C[r[A.leg]][0]+". Sigue rumbo a "+C[r[(A.leg+1)%r.length]][0]}}
+draw();requestAnimationFrame(simStep)}
+$("simBtn").addEventListener("click",()=>{const r=cur();if(A.fin)simReset();
+if(A.play){A.play=false;$("simBtn").textContent="▶ Continuar";return}
+A.play=true;A.last=performance.now();$("simBtn").textContent="⏸ Pausar";
+if($("simEst").textContent.startsWith("Listo"))$("simEst").textContent="Sale de Puebla rumbo a "+C[r[1]][0];
+requestAnimationFrame(simStep)});
+$("simRst").addEventListener("click",()=>{simReset();draw()});
+window.addEventListener("resize",draw);
+build();show();draw();
+</script>
+</body>
+</html>

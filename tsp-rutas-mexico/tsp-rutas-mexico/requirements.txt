@@ -1,0 +1,3 @@
+# Los programas usan solo la biblioteca estándar de Python 3.8+.
+# matplotlib es OPCIONAL: solo sirve para guardar gráficas (tsp_algoritmos.py y tsp_rutas.py).
+matplotlib
